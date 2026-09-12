@@ -19,6 +19,9 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
     login_as(test_user, scope: :user)
     get "/"
     assert_response :success
+    assert_select '[data-layout-width="wide"]' do |layouts|
+      assert_includes layouts.first["class"].split, "lg:max-w-6xl"
+    end
     assert_includes response.body, "Timeframe"
   end
 

@@ -6,6 +6,9 @@ class StatusControllerTest < ActionDispatch::IntegrationTest
   test "status page shows api statuses" do
     get "/status"
     assert_response :success
+    assert_select '[data-layout-width="wide"]' do |layouts|
+      assert_includes layouts.first["class"].split, "lg:max-w-6xl"
+    end
     assert_includes response.body, "API Status"
     assert_includes response.body, "States"
     assert_includes response.body, "Calendars"

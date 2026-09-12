@@ -233,6 +233,22 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{repair_account_location_device_path(@account, @location, device)}']"
   end
 
+  test "settings uses the wide application layout" do
+    device = Device.find_or_create_by!(name: "test-wide-settings", model: "trmnl_x") do |d|
+      d.location = @location
+      d.mac_address = SecureRandom.hex(6).scan(/../).join(":")
+      d.confirmed_at = Time.current
+      d.confirmation_code = nil
+    end
+
+    get settings_account_location_device_path(@account, @location, device)
+
+    assert_response :success
+    assert_select '[data-layout-width="wide"]' do |layouts|
+      assert_includes layouts.first["class"].split, "lg:max-w-6xl"
+    end
+  end
+
   test "repair pairs a never-paired device by copying the pending credentials" do
     device = @location.devices.create!(
       name: "test-pair-new-#{SecureRandom.hex(4)}",

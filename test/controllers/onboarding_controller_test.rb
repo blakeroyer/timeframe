@@ -22,6 +22,9 @@ class OnboardingControllerTest < ActionDispatch::IntegrationTest
   test "show renders the create-device step with a model selector" do
     get onboarding_path
     assert_response :success
+    assert_select '[data-layout-width="compact"]' do |layouts|
+      refute_includes layouts.first["class"].split, "lg:max-w-6xl"
+    end
     assert_includes response.body, "Set up your device"
     assert_includes response.body, "device_model"
   end

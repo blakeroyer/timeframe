@@ -17,6 +17,9 @@ class SetupControllerTest < ActionDispatch::IntegrationTest
   test "setup page creates pending device and shows pairing code" do
     get "/pair"
     assert_response :success
+    assert_select '[data-layout-width="compact"]' do |layouts|
+      refute_includes layouts.first["class"].split, "lg:max-w-6xl"
+    end
     assert PendingDevice.count > 0
     assert_includes response.body, PendingDevice.last.pairing_code
   end
