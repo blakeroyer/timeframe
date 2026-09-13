@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Run the Rails suite inside a Ruby 4.0.2 container when the host has no
+# matching Ruby. Builds a one-off runner image (gems only; the checkout is
+# bind-mounted, so code changes need no rebuild), starts the bundled
+# PostgreSQL, prepares the test database, and runs `rake` (or `rake test` with
+# TESTS set to a glob, e.g. "engine/test/models/*_test.rb").
+#
+#   script/test-in-docker                      # full suite
+#   script/test-in-docker "test/models/*.rb"   # a subset (coverage gate will fail; that's expected)
+#   REBUILD=1 script/test-in-docker            # refresh gems after a Gemfile.lock change
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+IMAGE=timeframe-test-runner
+if [[ -n "${REBUILD:-}" ]] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  ctx="$(mktemp -d)"
+  trap 'rm -rf "$ctx"' EXIT
+  mkdir -p "$ctx/engine"
+  cp Gemfile Gemfile.lock "$ctx/"
+  cp engine/timeframe-core.gemspec "$ctx/engine/"
+  cat > "$ctx/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.2-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential git libffi-dev libyaml-dev \
+      chromium imagemagick \
+      libatk-bridge2.0-0 libatk1.0-0 libcups2 libdbus-1-3 \
+      libdrm2 libgbm1 libnspr4 libnss3 libx11-xcb1 \
+      libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 \
+      fonts-liberation \
+      postgresql postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY Gemfile Gemfile.lock ./
+COPY engine/timeframe-core.gemspec engine/
+RUN bundle install --jobs 4
+ENV RAILS_ENV=test TIMEFRAME_HOME_ASSISTANT_TOKEN=ci-test-token
+DOCKER
+  docker build -t "$IMAGE" "$ctx"
+fi
+
+docker run --rm -v "$PWD:/app" -w /app ${1:+-e TESTS="$1"} -e FERRUM_CHROME_DOCKERIZE=true "$IMAGE" bash -c '
+  service postgresql start >/dev/null 2>&1
+  for i in $(seq 1 20); do su postgres -c "pg_isready -q" && break; sleep 1; done
+  su postgres -c "createuser -s root" 2>/dev/null || true
+  bundle exec rake db:test:prepare >/dev/null 2>&1 || bundle exec rake db:create db:schema:load
+  if [ -n "${TESTS:-}" ]; then bundle exec rake test TESTS="$TESTS"; else bundle exec rake; fi
+'
