@@ -33,6 +33,33 @@ class DemoDeviceContentTest < Minitest::Test
     end
   end
 
+  def test_ha_status_disabled_drops_the_status_region
+    result = DemoDeviceContent.new.call(timezone: "America/Chicago", include_ha_status: false)
+
+    assert_equal "72°", result[:current_temperature]
+    assert_empty result[:top_left]
+    assert_empty result[:top_right]
+    assert_empty result[:weather_status]
+    assert_nil result[:now_playing]
+  end
+
+  def test_status_feeds_can_be_excluded_individually
+    result = DemoDeviceContent.new.call(
+      timezone: "America/Chicago",
+      include_top_left: false, include_weather_status: false, include_top_right: false, include_now_playing: false
+    )
+    assert_empty result[:top_left]
+    assert_empty result[:top_right]
+    assert_empty result[:weather_status]
+    assert_nil result[:now_playing]
+
+    only_right = DemoDeviceContent.new.call(timezone: "America/Chicago", include_top_left: false)
+    assert_empty only_right[:top_left]
+    assert_equal [{icon: "bird", label: "Spotted Towhee"}], only_right[:top_right]
+    assert_equal [{icon: "arrow-up", label: "12", rotation: 45}], only_right[:weather_status]
+    assert_equal({artist: "Tycho", track: "A Walk"}, only_right[:now_playing])
+  end
+
   def test_battery_omitted_when_full_and_not_charging
     result = DemoDeviceContent.new.call(timezone: "America/Chicago", battery_level: 100)
     assert_nil result[:battery]

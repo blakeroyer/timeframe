@@ -518,6 +518,7 @@ class Device < ActiveRecord::Base
       include_weather_alerts: weather_alerts_enabled?,
       include_air_quality: air_quality_alerts_enabled?,
       include_minutely: minutely_precip_enabled?,
+      include_ha_status: ha_status_enabled?,
       include_temperature: include_temperature_events,
       temperature_hours: temperature_hours,
       use_day_names: compact_view, include_daily_weather: !compact_view,

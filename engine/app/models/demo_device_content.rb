@@ -5,7 +5,8 @@ class DemoDeviceContent
     include_weather_alerts: true, include_air_quality: true, include_temperature: true, temperature_hours: nil,
     use_day_names: false, include_daily_weather: true, weather_row: false, start_time_only: false,
     always_show_today: false, hide_today_after_minutes: 1200, start_offset: 0, clothing_forecast: false, auto_icons: false, event_filters: {},
-    fill_hourly_weather: false, wind_gust_threshold_mph: 20.0, battery_level: nil, charging: false, day_groups_limit: nil, include_minutely: true)
+    fill_hourly_weather: false, wind_gust_threshold_mph: 20.0, battery_level: nil, charging: false, day_groups_limit: nil, include_minutely: true,
+    include_ha_status: true, include_top_left: true, include_weather_status: true, include_top_right: true, include_now_playing: true)
     current_time ||= Time.now.utc.in_time_zone(timezone)
 
     out = {}
@@ -15,21 +16,23 @@ class DemoDeviceContent
     battery = Device.battery_descriptor(level: battery_level, charging: charging)
     out[:battery] = battery if battery && (battery[:low] || battery[:charging])
 
-    out[:top_left] = [
-      {icon: "door-open", label: "Front Door"},
-      {icon: "door-open", label: "Garage"},
-      {icon: "washing-machine", label: "Laundry"}
-    ]
-
-    out[:top_right] = [
-      {icon: "bird", label: "Spotted Towhee"}
-    ]
-
-    out[:weather_status] = [
-      {icon: "arrow-up", label: "12", rotation: 45}
-    ]
-
-    out[:now_playing] = {artist: "Tycho", track: "A Walk"}
+    # Mirrors DeviceContent: the status region honors the device's
+    # "show_ha_status" setting and its per-feed switches.
+    out[:top_left] = []
+    out[:top_right] = []
+    out[:weather_status] = []
+    if include_ha_status
+      if include_top_left
+        out[:top_left] = [
+          {icon: "door-open", label: "Front Door"},
+          {icon: "door-open", label: "Garage"},
+          {icon: "washing-machine", label: "Laundry"}
+        ]
+      end
+      out[:top_right] = [{icon: "bird", label: "Spotted Towhee"}] if include_top_right
+      out[:weather_status] = [{icon: "arrow-up", label: "12", rotation: 45}] if include_weather_status
+      out[:now_playing] = {artist: "Tycho", track: "A Walk"} if include_now_playing
+    end
 
     if include_minutely
       out[:minutely_weather_minutes] = (0...60).map do |i|

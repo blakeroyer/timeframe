@@ -24,7 +24,12 @@ class DeviceContent
     event_filters: {},
     wind_gust_threshold_mph: 20.0,
     day_groups_limit: nil,
-    include_minutely: true
+    include_minutely: true,
+    include_ha_status: true,
+    include_top_left: true,
+    include_weather_status: true,
+    include_top_right: true,
+    include_now_playing: true
   )
     home_assistant_api ||= HomeAssistantApi.new(wind_gust_threshold_mph: wind_gust_threshold_mph, account: device&.location&.account)
     current_time ||= Time.now.utc.in_time_zone(home_assistant_api.time_zone)
@@ -35,14 +40,21 @@ class DeviceContent
     out[:weather_status] = []
     out[:current_time] = current_time
 
+    # The Home Assistant status region (top-left/right sensors, weather status,
+    # now playing) is filtered here rather than in the components so every
+    # template honors the device's "show_ha_status" setting and its per-feed
+    # switches. The current temperature is part of the date header, not the
+    # status region, so it is always kept.
     if home_assistant_api.states_healthy?
       out[:current_temperature] = home_assistant_api.feels_like_temperature
 
-      out[:now_playing] = home_assistant_api.now_playing
-      out[:top_right] = home_assistant_api.top_right
-      out[:top_left] = home_assistant_api.top_left
-      out[:weather_status] = home_assistant_api.weather_status
-    else
+      if include_ha_status
+        out[:now_playing] = home_assistant_api.now_playing if include_now_playing
+        out[:top_right] = home_assistant_api.top_right if include_top_right
+        out[:top_left] = home_assistant_api.top_left if include_top_left
+        out[:weather_status] = home_assistant_api.weather_status if include_weather_status
+      end
+    elsif include_ha_status
       out[:top_left] << {icon: "alert", label: "Home Assistant"}
     end
 

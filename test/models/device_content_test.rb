@@ -1036,4 +1036,72 @@ class DeviceContenttTest < Minitest::Test
       end
     end
   end
+
+  def test_ha_status_disabled_drops_the_status_region
+    travel_to DateTime.new(2023, 8, 27, 18, 15, 0, "-0600") do
+      with_healthy_status_api do |api|
+        result = DeviceContent.new.call(home_assistant_api: api, include_ha_status: false)
+
+        assert_equal "72°", result[:current_temperature]
+        assert_empty result[:top_left]
+        assert_empty result[:top_right]
+        assert_empty result[:weather_status]
+        assert_nil result[:now_playing]
+      end
+    end
+  end
+
+  def test_ha_status_disabled_hides_the_unhealthy_alert
+    travel_to DateTime.new(2023, 8, 27, 18, 15, 0, "-0600") do
+      api = new_test_api
+      assert_equal [{icon: "alert", label: "Home Assistant"}], DeviceContent.new.call(home_assistant_api: api)[:top_left]
+      assert_empty DeviceContent.new.call(home_assistant_api: api, include_ha_status: false)[:top_left]
+    end
+  end
+
+  def test_status_feeds_can_be_excluded_individually
+    travel_to DateTime.new(2023, 8, 27, 18, 15, 0, "-0600") do
+      with_healthy_status_api do |api|
+        all = DeviceContent.new.call(home_assistant_api: api)
+        assert_equal [{icon: "door-open", label: "Front"}], all[:top_left]
+        assert_equal [{icon: "bird", label: "Towhee"}], all[:top_right]
+        assert_equal [{icon: "arrow-up", label: "12", rotation: 45}], all[:weather_status]
+        assert_equal({artist: "Tycho", track: "A Walk"}, all[:now_playing])
+
+        result = DeviceContent.new.call(
+          home_assistant_api: api,
+          include_top_left: false, include_weather_status: false, include_top_right: false, include_now_playing: false
+        )
+        assert_empty result[:top_left]
+        assert_empty result[:top_right]
+        assert_empty result[:weather_status]
+        assert_nil result[:now_playing]
+
+        only_left = DeviceContent.new.call(home_assistant_api: api, include_top_right: false)
+        assert_equal [{icon: "door-open", label: "Front"}], only_left[:top_left]
+        assert_empty only_left[:top_right]
+      end
+    end
+  end
+
+  private
+
+  def with_healthy_status_api
+    api = new_test_api
+    api.stub :states_healthy?, true do
+      api.stub :feels_like_temperature, "72°" do
+        api.stub :now_playing, {artist: "Tycho", track: "A Walk"} do
+          api.stub :top_right, [{icon: "bird", label: "Towhee"}] do
+            api.stub :top_left, [{icon: "door-open", label: "Front"}] do
+              api.stub :weather_status, [{icon: "arrow-up", label: "12", rotation: 45}] do
+                api.stub :daily_events, [] do
+                  yield api
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
 end

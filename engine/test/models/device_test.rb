@@ -916,6 +916,14 @@ class DeviceTest < Minitest::Test
     refute Device.new(display_template: "three_day", configuration: {"show_weather_alerts" => "false"}).weather_alerts_enabled?
   end
 
+  def test_content_args_pass_the_ha_status_setting_through
+    device = Device.new(model: "trmnl_x", display_template: "reterminal_landscape")
+    assert_equal true, device.content_args(timezone: "UTC")[:include_ha_status]
+
+    device.configuration = {"show_ha_status" => "false"}
+    assert_equal false, device.content_args(timezone: "UTC")[:include_ha_status]
+  end
+
   def test_ha_status_enabled_defaults_on_and_respects_setting
     # Defaults on when unset.
     assert Device.new.ha_status_enabled?
