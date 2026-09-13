@@ -1,6 +1,6 @@
 {
   "name": "Timeframe Dev",
-  "version": "2.15.0-dev.3",
+  "version": "2.15.0-dev.4",
   "slug": "timeframe_dev",
   "description": "Local development build of Timeframe",
   "url": "https://github.com/timeframe/ha-addon",
