@@ -1,6 +1,6 @@
 {
   "name": "Timeframe Dev",
-  "version": "2.15.0-dev.4",
+  "version": "2.15.0-dev.5",
   "slug": "timeframe_dev",
   "description": "Local development build of Timeframe",
   "url": "https://github.com/timeframe/ha-addon",
@@ -16,7 +16,8 @@
   "panel_title": "Timeframe Dev",
   "host_network": false,
   "map": [
-    "data:rw"
+    "data:rw",
+    "backup:ro"
   ],
   "ports": {
     "8110/tcp": 8110
@@ -24,8 +25,14 @@
   "ports_description": {
     "8110/tcp": "Development web interface"
   },
-  "options": {},
-  "schema": {},
+  "options": {
+    "restore_from": "",
+    "restore_addon": "6974f171_timeframe"
+  },
+  "schema": {
+    "restore_from": "str?",
+    "restore_addon": "str?"
+  },
   "environment": {
     "PORT": "8110"
   }

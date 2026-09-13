@@ -1,0 +1,37 @@
+{
+  "name": "Timeframe (local build)",
+  "version": "2.15.0-local.1",
+  "slug": "timeframe",
+  "description": "Locally built Timeframe with the screen composition customizations",
+  "url": "https://github.com/timeframe/ha-addon",
+  "arch": [
+    "aarch64",
+    "amd64"
+  ],
+  "homeassistant_api": true,
+  "hassio_role": "default",
+  "ingress": true,
+  "ingress_port": 8099,
+  "panel_icon": "mdi:calendar-clock",
+  "panel_title": "Timeframe",
+  "host_network": true,
+  "map": [
+    "data:rw",
+    "backup:ro"
+  ],
+  "ports": {
+    "8099/tcp": 8099
+  },
+  "ports_description": {
+    "8099/tcp": "Web interface"
+  },
+  "options": {
+    "restore_from": "",
+    "restore_addon": "6974f171_timeframe"
+  },
+  "schema": {
+    "restore_from": "str?",
+    "restore_addon": "str?"
+  },
+  "backup": "cold"
+}
