@@ -25,5 +25,8 @@
     "8110/tcp": "Development web interface"
   },
   "options": {},
-  "schema": {}
+  "schema": {},
+  "environment": {
+    "PORT": "8110"
+  }
 }
