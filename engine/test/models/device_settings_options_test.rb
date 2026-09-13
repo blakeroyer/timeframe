@@ -78,6 +78,46 @@ class DeviceSettingsOptionsTest < ActiveSupport::TestCase
     refute_includes keys, "show_current_day"
   end
 
+  COMPOSITION_KEYS = %w[show_ha_status show_ha_top_left show_ha_weather_status show_ha_top_right
+    show_ha_now_playing timeline_horizon room_scale_text].freeze
+
+  def test_reterminal_landscape_ends_with_the_screen_composition_group
+    options = DeviceSettingsOptions.call(Device.new(display_template: "reterminal_landscape"))
+    composition = options.last(COMPOSITION_KEYS.size)
+
+    assert_equal COMPOSITION_KEYS, composition.map { |o| o[:key] }
+    assert composition.all? { |o| o[:group] == DeviceSettingsOptions::SCREEN_COMPOSITION_GROUP }
+    assert options.first(options.size - COMPOSITION_KEYS.size).none? { |o| o[:group] }
+  end
+
+  def test_screen_composition_defaults_match_todays_rendering
+    by_key = DeviceSettingsOptions.call(Device.new(display_template: "reterminal_landscape")).index_by { |o| o[:key] }
+
+    assert by_key["show_ha_status"][:default_on]
+    refute by_key["show_ha_status"][:depends_on]
+    %w[show_ha_top_left show_ha_weather_status show_ha_top_right].each do |key|
+      assert by_key[key][:default_on], "expected #{key} to default on"
+      assert_equal "show_ha_status", by_key[key][:depends_on]
+    end
+    # The landscape layout has never shown now playing or room-scale text.
+    refute by_key["show_ha_now_playing"][:default_on]
+    assert_equal "show_ha_status", by_key["show_ha_now_playing"][:depends_on]
+    refute by_key["room_scale_text"][:default_on]
+
+    horizon = by_key["timeline_horizon"]
+    assert_equal :select, horizon[:type]
+    assert_equal Device::TIMELINE_HORIZON_DEFAULT, horizon[:default]
+    assert_equal Device::TIMELINE_HORIZON_DAYS.keys, horizon[:choices].map(&:last)
+    assert_equal DeviceSettingsOptions::TIMELINE_HORIZON_DESCRIPTION, horizon[:description]
+  end
+
+  def test_screen_composition_is_landscape_only
+    %w[reterminal trmnl thirteen mira three_day].each do |template|
+      keys = keys_for(template)
+      COMPOSITION_KEYS.each { |key| refute_includes keys, key, "#{template} should not offer #{key}" }
+    end
+  end
+
   def test_thirteen_options
     assert_equal(
       %w[show_current_day show_temperature_events show_precip_events show_wind_events

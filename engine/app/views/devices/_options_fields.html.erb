@@ -7,8 +7,28 @@
       INLINE with their switch, so index them by the switch they depend on and
       skip them in the main loop. %>
   <% time_by_switch = all_opts.select { |o| o[:type] == :time }.index_by { |o| o[:depends_on] } %>
+  <% current_group = nil %>
   <% all_opts.each do |opt| %>
     <% next if opt[:type] == :time %>
+    <%# Grouped options (the "Screen composition" controls) get a heading above
+        the first option carrying the group name. %>
+    <% if opt[:group] != current_group %>
+      <% current_group = opt[:group] %>
+      <% if current_group %>
+        <div class="mt-4 mb-2 border-t border-ink/10 pt-3 text-sm font-bold" data-option-group><%= current_group %></div>
+      <% end %>
+    <% end %>
+    <% if opt[:type] == :select %>
+      <% select_id = "option-#{opt[:key].tr("_", "-")}" %>
+      <div class="mb-2 flex flex-wrap items-center gap-2" data-depends-on="<%= opt[:depends_on] %>">
+        <label class="flex items-center gap-2" for="<%= select_id %>"><span><%= opt[:label] %></span></label>
+        <%= select_tag "configuration[#{opt[:key]}]", options_for_select(opt[:choices], device.configuration&.dig(opt[:key]).presence || opt[:default]), id: select_id, class: "tf-input-sm h-11 w-auto flex-shrink-0" %>
+        <% if opt[:description].present? %>
+          <div class="mt-0.5 w-full text-sm text-gray-500"><%= opt[:description] %></div>
+        <% end %>
+      </div>
+      <% next %>
+    <% end %>
     <%
       current_value = device.configuration&.dig(opt[:key])
       is_on = opt[:default_on] ? current_value != "false" : current_value == "true"

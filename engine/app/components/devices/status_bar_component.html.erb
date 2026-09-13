@@ -6,6 +6,9 @@
 <%- left_groups.each do |group| -%>
 <span style="margin-right: .5rem;"><i class="mdi mdi-<%= group[:icon] %>" style="margin-right: .1rem;<%= " display: inline-block; transform: rotate(#{group[:rotation]}deg);" if group[:rotation] %>"></i><%= group[:labels].join(", ") %></span>
 <%- end -%>
+<%- if (playing = now_playing_text) -%>
+<span style="margin-right: .5rem;"><i class="mdi mdi-music" style="margin-right: .1rem;"></i><%= playing %></span>
+<%- end -%>
   </div>
   <div style="flex: 0 0 auto; text-align: right; white-space: nowrap; overflow: hidden; padding-block: .3em; margin-block: -.3em;">
 <%- right_groups.each do |group| -%>

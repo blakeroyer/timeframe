@@ -249,6 +249,60 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "settings shows the screen composition group for the TRMNL X landscape layout" do
+    device = Device.find_or_create_by!(name: "test-composition-settings", model: "trmnl_x") do |d|
+      d.location = @location
+      d.mac_address = SecureRandom.hex(6).scan(/../).join(":")
+      d.confirmed_at = Time.current
+      d.confirmation_code = nil
+      d.display_template = "reterminal_landscape"
+    end
+
+    get settings_account_location_device_path(@account, @location, device)
+
+    assert_response :success
+    assert_select "[data-option-group]", text: "Screen composition"
+    assert_select "input[data-option-key='show_ha_status'][checked]"
+    assert_select "[data-depends-on='show_ha_status'] input[data-option-key='show_ha_top_left'][checked]"
+    assert_select "input[data-option-key='show_ha_now_playing']:not([checked])"
+    assert_select "input[data-option-key='room_scale_text']:not([checked])"
+    assert_select "select[name='configuration[timeline_horizon]']" do
+      assert_select "option[selected][value='12']", text: "Up to 12 days"
+      assert_select "option", count: Device::TIMELINE_HORIZON_DAYS.size
+    end
+
+    # Portrait keeps the plain option list.
+    device.update!(display_template: "reterminal")
+    get settings_account_location_device_path(@account, @location, device)
+    assert_response :success
+    assert_select "[data-option-group]", count: 0
+    assert_select "select[name='configuration[timeline_horizon]']", count: 0
+  end
+
+  test "update_options persists the screen composition choices" do
+    device = Device.find_or_create_by!(name: "test-composition-save", model: "trmnl_x") do |d|
+      d.location = @location
+      d.mac_address = SecureRandom.hex(6).scan(/../).join(":")
+      d.confirmed_at = Time.current
+      d.confirmation_code = nil
+      d.display_template = "reterminal_landscape"
+    end
+
+    patch update_options_account_location_device_path(@account, @location, device),
+      params: {name: device.name, configuration: {timeline_horizon: "5", show_ha_top_left: "false", room_scale_text: "true"}}
+
+    assert_redirected_to settings_account_location_device_path(@account, @location, device)
+    device.reload
+    assert_equal "5", device.configuration["timeline_horizon"]
+    assert_equal 5, device.timeline_horizon_days
+    refute device.ha_feed_enabled?("top_left")
+    assert_equal "true", device.configuration["room_scale_text"]
+
+    get settings_account_location_device_path(@account, @location, device)
+    assert_select "select[name='configuration[timeline_horizon]'] option[selected][value='5']"
+    assert_select "input[data-option-key='show_ha_top_left']:not([checked])"
+  end
+
   test "repair pairs a never-paired device by copying the pending credentials" do
     device = @location.devices.create!(
       name: "test-pair-new-#{SecureRandom.hex(4)}",

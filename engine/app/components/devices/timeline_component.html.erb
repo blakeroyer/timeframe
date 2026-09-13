@@ -70,7 +70,7 @@
         </table>
       <% end %>
     </div>
-    <div style="width: 30rem;">
+    <div style="<%= periodic_column_style %>">
       <table style="width: 100%; table-layout: fixed;">
         <% (only_icons ? event_day[:periodic].select(&keep_only_icons) : event_day[:periodic]).each do |event| %>
           <tr>

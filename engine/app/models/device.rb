@@ -397,6 +397,47 @@ class Device < ActiveRecord::Base
     configuration&.dig("show_ha_status") != "false"
   end
 
+  # Templates that expose the bounded "Screen composition" controls (per-feed
+  # Home Assistant status switches, timeline horizon, room-scale text). Kept
+  # narrow on purpose: every control defaults to the template's existing
+  # rendering, and other templates never read the new configuration keys.
+  SCREEN_COMPOSITION_TEMPLATES = %w[reterminal_landscape].freeze
+
+  def screen_composition_supported?
+    SCREEN_COMPOSITION_TEMPLATES.include?(active_template)
+  end
+
+  # Per-feed switches inside the Home Assistant status region (top_left,
+  # weather_status, top_right). Each defaults ON and only matters while the
+  # region itself is shown.
+  def ha_feed_enabled?(feed)
+    ha_status_enabled? && configuration&.dig("show_ha_#{feed}") != "false"
+  end
+
+  # Now playing stays in the content for the layouts that already render it
+  # (Mira). Composition templates add it to the status bar only when the switch
+  # is explicitly on, so deploying the switch changes nothing on its own.
+  def now_playing_enabled?
+    return false unless ha_status_enabled?
+    return true unless screen_composition_supported?
+
+    configuration&.dig("show_ha_now_playing") == "true"
+  end
+
+  # Timeline horizon presets (days) for the composition templates. The default
+  # matches the 12 days the reTerminal/TRMNL X timeline has always requested.
+  TIMELINE_HORIZON_DAYS = {"3" => 3, "5" => 5, "7" => 7, "12" => 12}.freeze
+  TIMELINE_HORIZON_DEFAULT = "12"
+
+  def timeline_horizon
+    value = configuration&.dig("timeline_horizon").to_s
+    TIMELINE_HORIZON_DAYS.key?(value) ? value : TIMELINE_HORIZON_DEFAULT
+  end
+
+  def timeline_horizon_days
+    TIMELINE_HORIZON_DAYS.fetch(timeline_horizon)
+  end
+
   # Whether the numeric device ID badge is shown on the device settings page.
   # Admin-only control; defaults OFF so the ID is hidden unless explicitly enabled.
   def show_device_id?
@@ -505,7 +546,9 @@ class Device < ActiveRecord::Base
           (hide_today_enabled ? 2 : 1)
         elsif active_template == "trmnl"
           14
-        elsif active_template == "reterminal" || active_template == "reterminal_landscape"
+        elsif screen_composition_supported?
+          timeline_horizon_days
+        elsif active_template == "reterminal"
           12
         elsif three_day
           (hide_today_enabled ? 4 : 3)
@@ -519,6 +562,10 @@ class Device < ActiveRecord::Base
       include_air_quality: air_quality_alerts_enabled?,
       include_minutely: minutely_precip_enabled?,
       include_ha_status: ha_status_enabled?,
+      include_top_left: ha_feed_enabled?("top_left"),
+      include_weather_status: ha_feed_enabled?("weather_status"),
+      include_top_right: ha_feed_enabled?("top_right"),
+      include_now_playing: now_playing_enabled?,
       include_temperature: include_temperature_events,
       temperature_hours: temperature_hours,
       use_day_names: compact_view, include_daily_weather: !compact_view,

@@ -6,7 +6,11 @@
 # a device based on its active template (plus, for account-specific options, its
 # account/location). Each entry is a hash:
 #
-#   {key:, label:, default_on:, type: :switch|:time, default:, description:, depends_on:}
+#   {key:, label:, default_on:, type: :switch|:time|:select, default:, choices:, description:, depends_on:, group:}
+#
+# :select entries carry `choices` as [label, value] pairs and a `default` value.
+# `group` names an optional heading the settings form renders above the first
+# option that carries it (the "Screen composition" controls).
 #
 # The temperature-hour picker and wind-gust threshold are rendered by each view
 # as sub-controls of the "show_temperature_events" / "show_wind_events" options.
@@ -76,6 +80,34 @@ class DeviceSettingsOptions
   HIDE_CURRENT_DAY_DESCRIPTION =
     "After the given time, hides the current day if there are no remaining events, making more room to show future days."
 
+  HA_TOP_LEFT_DESCRIPTION =
+    "Shows the sensor.timeframe_top_left_* states at the top left of the display."
+
+  HA_WEATHER_STATUS_DESCRIPTION =
+    "Shows the sensor.timeframe_weather_status_* states beside the top-left sensors."
+
+  HA_TOP_RIGHT_DESCRIPTION =
+    "Shows the sensor.timeframe_top_right_* states at the top right of the display."
+
+  HA_NOW_PLAYING_DESCRIPTION =
+    "Shows the artist and track playing on your media player in the status bar."
+
+  TIMELINE_HORIZON_DESCRIPTION =
+    "How many days the timeline covers. Fewer days leave room for larger text " \
+    "when the display is read from across the room."
+
+  ROOM_SCALE_TEXT_DESCRIPTION =
+    "Increases the size of all text on the display for reading from across the room."
+
+  TIMELINE_HORIZON_CHOICES = [
+    ["Next 3 days", "3"],
+    ["Next 5 days", "5"],
+    ["Next 7 days", "7"],
+    ["Up to 12 days", "12"]
+  ].freeze
+
+  SCREEN_COMPOSITION_GROUP = "Screen composition"
+
   DAILY_EMAIL_DEFAULT_TIME = "19:00"
 
   def self.call(device)
@@ -97,6 +129,7 @@ class DeviceSettingsOptions
     template_options
     hide_current_day_option
     time_inputs
+    composition_options
     @options
   end
 
@@ -104,15 +137,20 @@ class DeviceSettingsOptions
 
   attr_reader :device, :template
 
-  def switch(key, label, default_on:, description: nil, depends_on: nil)
+  def switch(key, label, default_on:, description: nil, depends_on: nil, group: nil)
     entry = {key: key, label: label, default_on: default_on, type: :switch}
     entry[:description] = description if description
     entry[:depends_on] = depends_on if depends_on
+    entry[:group] = group if group
     @options << entry
   end
 
   def time_input(key, label, default:, depends_on:)
     @options << {key: key, label: label, type: :time, default: default, depends_on: depends_on}
+  end
+
+  def select(key, label, choices:, default:, description:, group:)
+    @options << {key: key, label: label, type: :select, choices: choices, default: default, description: description, group: group}
   end
 
   def one_day? = %w[one_day sticky_one_day].include?(template)
@@ -124,6 +162,8 @@ class DeviceSettingsOptions
   def compact? = %w[two_day three_day one_day sticky_one_day].include?(template)
 
   def reterminal? = %w[reterminal reterminal_landscape].include?(template)
+
+  def screen_composition? = Device::SCREEN_COMPOSITION_TEMPLATES.include?(template)
 
   def header_options
     if %w[trmnl reterminal thirteen boox_mira mira].include?(template)
@@ -173,7 +213,7 @@ class DeviceSettingsOptions
   # exercised through the host apps' device settings pages instead.
   def account_options
     ha_sync = device.location.respond_to?(:ha_sync) && device.location.ha_sync&.synced_at.present?
-    switch("show_ha_status", "Home Assistant status", default_on: true, description: HA_STATUS_DESCRIPTION) if ha_sync
+    switch("show_ha_status", "Home Assistant status", default_on: true, description: HA_STATUS_DESCRIPTION) if ha_sync && !screen_composition?
 
     if device.screenshotted? && device.account.respond_to?(:owner_email)
       switch("daily_screenshot_email", "Email me a daily reminder at", default_on: false, description: DAILY_EMAIL_DESCRIPTION)
@@ -219,6 +259,25 @@ class DeviceSettingsOptions
     return unless Device::HIDE_CURRENT_DAY_TEMPLATES.include?(template)
 
     switch("hide_current_day_enabled", "Hide current day if no events after", default_on: device.hide_current_day_default_on?, description: HIDE_CURRENT_DAY_DESCRIPTION)
+  end
+
+  # Bounded layout controls for room-scale displays (see
+  # Device::SCREEN_COMPOSITION_TEMPLATES). The structure stays fixed (status
+  # bar, date header, timeline); these choose what fills it. Every default
+  # matches the template's rendering before the controls existed, and the
+  # Home Assistant status switch lives here (rather than in account_options)
+  # because the feed switches depend on it.
+  def composition_options
+    return unless screen_composition?
+
+    group = SCREEN_COMPOSITION_GROUP
+    switch("show_ha_status", "Home Assistant status", default_on: true, description: HA_STATUS_DESCRIPTION, group: group)
+    switch("show_ha_top_left", "Top-left sensors", default_on: true, depends_on: "show_ha_status", description: HA_TOP_LEFT_DESCRIPTION, group: group)
+    switch("show_ha_weather_status", "Weather status sensors", default_on: true, depends_on: "show_ha_status", description: HA_WEATHER_STATUS_DESCRIPTION, group: group)
+    switch("show_ha_top_right", "Top-right sensors", default_on: true, depends_on: "show_ha_status", description: HA_TOP_RIGHT_DESCRIPTION, group: group)
+    switch("show_ha_now_playing", "Now playing", default_on: false, depends_on: "show_ha_status", description: HA_NOW_PLAYING_DESCRIPTION, group: group)
+    select("timeline_horizon", "Timeline horizon", choices: TIMELINE_HORIZON_CHOICES, default: Device::TIMELINE_HORIZON_DEFAULT, description: TIMELINE_HORIZON_DESCRIPTION, group: group)
+    switch("room_scale_text", "Room-scale text", default_on: false, description: ROOM_SCALE_TEXT_DESCRIPTION, group: group)
   end
 
   def time_inputs

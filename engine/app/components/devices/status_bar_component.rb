@@ -1,12 +1,17 @@
 # frozen_string_literal: true
 
 class Devices::StatusBarComponent < ViewComponent::Base
-  def initialize(view_object:)
+  # now_playing: whether to render the now-playing feed in the bar. Opt-in per
+  # layout (see Device#now_playing_enabled?); the composition templates pass
+  # true when their "Now playing" switch is on.
+  def initialize(view_object:, now_playing: false)
     @view_object = view_object
+    @now_playing = now_playing
   end
 
   def render?
-    @view_object[:top_left].any? || @view_object[:top_right].any? || @view_object[:weather_status].any? || @view_object[:battery].present?
+    @view_object[:top_left].any? || @view_object[:top_right].any? || @view_object[:weather_status].any? ||
+      @view_object[:battery].present? || now_playing_text.present?
   end
 
   # Merges items sharing the same icon (and rotation) into one group, joining
@@ -35,5 +40,16 @@ class Devices::StatusBarComponent < ViewComponent::Base
   # Consolidated top-right indicators.
   def right_groups
     self.class.consolidate(@view_object[:top_right])
+  end
+
+  # "Artist · Track" for the now-playing feed, or nil when the feed is not
+  # rendered by this layout or nothing is playing.
+  def now_playing_text
+    return nil unless @now_playing
+
+    playing = @view_object[:now_playing]
+    return nil if playing.blank?
+
+    [playing[:artist], playing[:track]].compact_blank.join(" · ")
   end
 end

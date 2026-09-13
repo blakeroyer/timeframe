@@ -159,13 +159,25 @@ class TimelineComponentTest < ActiveSupport::TestCase
 
   private
 
+  test "periodic column is a fixed width by default" do
+    html = render_timeline(day_groups: [day_group])
+    assert_includes html, 'style="width: 30rem;"'
+    refute_includes html, "flex: 1 1 auto"
+  end
+
+  test "periodic column fills the row when flexible_width is on" do
+    html = render_timeline(day_groups: [day_group], flexible_width: true)
+    assert_includes html, 'style="flex: 1 1 auto; min-width: 0;"'
+    refute_includes html, 'style="width: 30rem;"'
+  end
+
   def day_group(day_name: "Today", show_daily: false, daily: [], periodic: [])
     {day_name: day_name, show_daily: show_daily, daily: daily, periodic: periodic}
   end
 
-  def render_timeline(day_groups:, configuration: {})
+  def render_timeline(day_groups:, configuration: {}, flexible_width: false)
     ApplicationController.render(
-      Devices::TimelineComponent.new(view_object: {day_groups: day_groups, configuration: configuration}),
+      Devices::TimelineComponent.new(view_object: {day_groups: day_groups, configuration: configuration}, flexible_width: flexible_width),
       layout: false
     )
   end

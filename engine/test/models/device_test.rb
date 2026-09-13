@@ -924,6 +924,74 @@ class DeviceTest < Minitest::Test
     assert_equal false, device.content_args(timezone: "UTC")[:include_ha_status]
   end
 
+  def test_screen_composition_is_supported_by_the_landscape_template_only
+    assert Device.new(model: "trmnl_x", display_template: "reterminal_landscape").screen_composition_supported?
+    refute Device.new(model: "trmnl_x", display_template: "reterminal").screen_composition_supported?
+    refute Device.new(model: "trmnl_x", display_template: "default").screen_composition_supported?
+  end
+
+  def test_ha_feed_enabled_defaults_on_and_follows_its_switch_and_the_region
+    device = Device.new(model: "trmnl_x", display_template: "reterminal_landscape")
+    assert device.ha_feed_enabled?("top_left")
+
+    device.configuration = {"show_ha_top_left" => "false"}
+    refute device.ha_feed_enabled?("top_left")
+    assert device.ha_feed_enabled?("top_right")
+
+    device.configuration = {"show_ha_status" => "false"}
+    refute device.ha_feed_enabled?("top_right")
+  end
+
+  def test_now_playing_stays_on_for_legacy_templates_and_opts_in_for_composition_templates
+    mira = Device.new(model: "boox_mira_pro", display_template: "default")
+    assert mira.now_playing_enabled?
+    mira.configuration = {"show_ha_status" => "false"}
+    refute mira.now_playing_enabled?
+
+    landscape = Device.new(model: "trmnl_x", display_template: "reterminal_landscape")
+    refute landscape.now_playing_enabled?
+    landscape.configuration = {"show_ha_now_playing" => "true"}
+    assert landscape.now_playing_enabled?
+    landscape.configuration = {"show_ha_now_playing" => "true", "show_ha_status" => "false"}
+    refute landscape.now_playing_enabled?
+  end
+
+  def test_timeline_horizon_falls_back_to_the_default_for_unknown_values
+    device = Device.new(model: "trmnl_x", display_template: "reterminal_landscape")
+    assert_equal "12", device.timeline_horizon
+    assert_equal 12, device.timeline_horizon_days
+
+    device.configuration = {"timeline_horizon" => "5"}
+    assert_equal "5", device.timeline_horizon
+    assert_equal 5, device.timeline_horizon_days
+
+    device.configuration = {"timeline_horizon" => "99"}
+    assert_equal "12", device.timeline_horizon
+  end
+
+  def test_content_args_apply_the_screen_composition_choices
+    device = Device.new(model: "trmnl_x", display_template: "reterminal_landscape")
+    args = device.content_args(timezone: "UTC")
+    assert_equal 12, args[:days]
+    assert_equal true, args[:include_top_left]
+    assert_equal true, args[:include_weather_status]
+    assert_equal true, args[:include_top_right]
+    assert_equal false, args[:include_now_playing]
+
+    device.configuration = {"timeline_horizon" => "3", "show_ha_weather_status" => "false", "show_ha_now_playing" => "true"}
+    args = device.content_args(timezone: "UTC")
+    assert_equal 3, args[:days]
+    assert_equal true, args[:include_top_left]
+    assert_equal false, args[:include_weather_status]
+    assert_equal true, args[:include_now_playing]
+
+    # Portrait ignores the landscape-only keys and keeps its 12-day timeline.
+    device.display_template = "reterminal"
+    portrait = device.content_args(timezone: "UTC")
+    assert_equal 12, portrait[:days]
+    assert_equal true, portrait[:include_now_playing]
+  end
+
   def test_ha_status_enabled_defaults_on_and_respects_setting
     # Defaults on when unset.
     assert Device.new.ha_status_enabled?

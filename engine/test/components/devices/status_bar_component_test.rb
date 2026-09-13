@@ -37,17 +37,46 @@ class StatusBarComponentTest < ActiveSupport::TestCase
     assert_includes html, "mdi-battery"
   end
 
+  test "leaves now playing out unless the layout opts in" do
+    html = render_status_bar(top_left: [{icon: "lock", label: "Front"}], now_playing: {artist: "Tycho", track: "A Walk"})
+
+    assert_includes html, "Front"
+    refute_includes html, "Tycho"
+    refute_includes html, "mdi-music"
+  end
+
+  test "renders now playing as artist and track when opted in" do
+    html = render_status_bar(now_playing: {artist: "Tycho", track: "A Walk"}, render_now_playing: true)
+
+    assert_includes html, "mdi-music"
+    assert_includes html, "Tycho · A Walk"
+  end
+
+  test "renders now playing with only a track when the artist is missing" do
+    html = render_status_bar(now_playing: {artist: nil, track: "Morning Show"}, render_now_playing: true)
+
+    assert_includes html, "Morning Show"
+    refute_includes html, "·"
+  end
+
+  test "renders nothing when opted in to now playing but nothing is playing" do
+    assert_equal "", render_status_bar(now_playing: {}, render_now_playing: true).strip
+    assert_equal "", render_status_bar(now_playing: nil, render_now_playing: true).strip
+  end
+
   private
 
-  def render_status_bar(top_left: [], top_right: [], weather_status: [], battery: nil)
+  def render_status_bar(top_left: [], top_right: [], weather_status: [], battery: nil, now_playing: nil, render_now_playing: false)
     ApplicationController.render(
       Devices::StatusBarComponent.new(
         view_object: {
           top_left: top_left,
           top_right: top_right,
           weather_status: weather_status,
-          battery: battery
-        }
+          battery: battery,
+          now_playing: now_playing
+        },
+        now_playing: render_now_playing
       ),
       layout: false
     )
