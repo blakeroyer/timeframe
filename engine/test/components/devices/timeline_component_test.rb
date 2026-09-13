@@ -162,12 +162,12 @@ class TimelineComponentTest < ActiveSupport::TestCase
   test "periodic column is a fixed width by default" do
     html = render_timeline(day_groups: [day_group])
     assert_includes html, 'style="width: 30rem;"'
-    refute_includes html, "flex: 1 1 auto"
+    refute_includes html, "flex: 1 1 0%"
   end
 
   test "periodic column fills the row when flexible_width is on" do
     html = render_timeline(day_groups: [day_group], flexible_width: true)
-    assert_includes html, 'style="flex: 1 1 auto; min-width: 0;"'
+    assert_includes html, 'style="flex: 1 1 0%; min-width: 0;"'
     refute_includes html, 'style="width: 30rem;"'
   end
 

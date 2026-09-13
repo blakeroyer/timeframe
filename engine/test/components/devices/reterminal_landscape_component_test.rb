@@ -24,7 +24,7 @@ class ReterminalLandscapeComponentTest < ActiveSupport::TestCase
 
     assert_includes html, "font-size: #{Devices::ReterminalComponent::FONT_SIZE};"
     assert_includes html, "width: 30rem;"
-    refute_includes html, "flex: 1 1 auto"
+    refute_includes html, "flex: 1 1 0%"
     # Now playing is present in the content but the layout has not opted in.
     refute_includes html, "Tycho"
   end
@@ -33,7 +33,7 @@ class ReterminalLandscapeComponentTest < ActiveSupport::TestCase
     html = render_landscape(configuration: {"room_scale_text" => "true"})
 
     assert_includes html, "font-size: #{Devices::ReterminalComponent::ROOM_SCALE_FONT_SIZE};"
-    assert_includes html, "flex: 1 1 auto; min-width: 0;"
+    assert_includes html, "flex: 1 1 0%; min-width: 0;"
     refute_includes html, "width: 30rem;"
   end
 
