@@ -100,7 +100,11 @@ module Api
       previous_connection_at = @device.last_connection_at
       telemetry = update_device_from_headers(@device)
 
-      @device.refresh_screenshot!(request.base_url) if @device.cached_image.blank? || params[:force].present?
+      # refresh_screenshot! re-captures only when the rendered page's content hash
+      # differs from the cached image's, so an unchanged poll stays cheap while a
+      # poll after new content (an unscheduled wake ahead of the pre-render job, or
+      # a change in its last minute) is served the current screen.
+      @device.refresh_screenshot!(request.base_url)
       record_device_poll(@device, telemetry, previous_connection_at:)
       # Reconnecting clears any pending "offline for a day" alert so a future
       # outage re-notifies the owner.

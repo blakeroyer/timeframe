@@ -1,6 +1,6 @@
 {
   "name": "Timeframe (local build)",
-  "version": "2.15.0-local.1",
+  "version": "2.15.0-local.2",
   "slug": "timeframe",
   "description": "Locally built Timeframe with the screen composition customizations",
   "url": "https://github.com/timeframe/ha-addon",

@@ -220,29 +220,58 @@ class Api::TrmnlControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "display skips refresh when cached image exists" do
-    device = create_trmnl_device!
-    cached_at = 5.minutes.ago
-    device.update!(cached_image: "existingbase64", cached_image_at: cached_at, last_connection_at: 1.minute.ago)
+  test "display skips refresh when cached image content is unchanged" do
+    freeze_time do
+      device = create_trmnl_device!
+      cached_at = 5.minutes.ago
+      # Match the state the headers below will set, so the page hash is the cached one.
+      device.update!(battery_level: 70, charging: false, low_battery_warning: device.battery_warning_for(level: 70, charging: false))
+      device.update!(cached_image: "existingbase64", cached_image_at: cached_at, last_connection_at: 1.minute.ago,
+        display_state_crc: device.display_content_crc)
 
-    get "/api/display", headers: {
-      "ID" => device.mac_address,
-      "ACCESS_TOKEN" => device.api_key,
-      "Battery-Voltage" => "3.9",
-      "Percent-Charged" => "70",
-      "USB-Connected" => "false"
-    }
+      ScreenshotService.stub :capture, ->(*, **) { flunk "unchanged content must not be re-captured" } do
+        get "/api/display", headers: {
+          "ID" => device.mac_address,
+          "ACCESS_TOKEN" => device.api_key,
+          "Battery-Voltage" => "3.9",
+          "Percent-Charged" => "70",
+          "USB-Connected" => "false"
+        }
+      end
 
-    assert_response :success
-    bucket = device.device_metric_buckets.first!
-    assert_equal 70, bucket.battery_percent_last
-    assert_equal 3.9, bucket.battery_voltage_last
-    assert_equal 1, bucket.poll_no_update_count
+      assert_response :success
+      assert_equal "display-#{cached_at}.png", JSON.parse(response.body)["filename"]
+      bucket = device.device_metric_buckets.first!
+      assert_equal 70, bucket.battery_percent_last
+      assert_equal 3.9, bucket.battery_voltage_last
+      assert_equal 1, bucket.poll_no_update_count
+    end
+  end
+
+  test "display re-captures a cached image whose content changed since it was rendered" do
+    freeze_time do
+      device = create_trmnl_device!
+      cached_at = 14.minutes.ago
+      device.update!(cached_image: "staleimage", cached_image_at: cached_at, last_connection_at: 1.minute.ago,
+        display_state_crc: device.display_content_crc + 1)
+
+      ScreenshotService.stub :capture, "freshimage" do
+        get "/api/display", headers: {"ID" => device.mac_address, "ACCESS_TOKEN" => device.api_key}
+      end
+
+      assert_response :success
+      device.reload
+      assert_equal "freshimage", device.cached_image
+      assert_equal Time.current, device.cached_image_at
+      assert_equal "display-#{device.cached_image_at}.png", JSON.parse(response.body)["filename"]
+      assert_equal 0, device.device_metric_buckets.first!.poll_no_update_count
+    end
   end
 
   test "display succeeds when poll metrics cannot be recorded" do
     device = create_trmnl_device!
     device.update!(cached_image: "existingbase64", cached_image_at: Time.current)
+    device.update!(display_state_crc: device.display_content_crc)
 
     DeviceMetricBucket.stub :record_poll!, ->(**) { raise ActiveRecord::ConnectionNotEstablished, "metrics unavailable" } do
       get "/api/display", headers: {"ID" => device.mac_address, "ACCESS_TOKEN" => device.api_key}
