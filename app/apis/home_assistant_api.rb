@@ -277,11 +277,15 @@ class HomeAssistantApi
     domain_last_fetched_at(CALENDAR_DOMAIN)
   end
 
+  # Home Assistant adds fields to calendar events over time (2026.10 added
+  # `status`); pass DeviceEvent only the keywords it accepts.
+  DEVICE_EVENT_KEYS = DeviceEvent.instance_method(:initialize).parameters.map(&:last) - [:timezone]
+
   def calendar_events
     @calendar_events ||= (domain_value(CALENDAR_DOMAIN)[:response] || []).map do |raw|
       event = raw.symbolize_keys
       event[:description] = customized_description(event)
-      DeviceEvent.new(**event, timezone: time_zone)
+      DeviceEvent.new(**event.slice(*DEVICE_EVENT_KEYS), timezone: time_zone)
     end
   end
 
